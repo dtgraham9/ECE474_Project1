@@ -70,10 +70,24 @@ std::string Opcode(int op) {
 }
 
 
-int main()
+int main(int argc, char* argv[])
 {
+	
+	/*
+	Parse arguments to ensure program will work correctly.  Number of processes is parsed later.
+	*/
+	if (argc == 1) {
+		std::cout << "Missing arguments <file>\n./ece474_project1.exe <file>\n" << std::endl;
+		return 1;
+	}
+	else if (argc >= 3) {
+		std::cout << "Something wrong with arguments\n./main <file>\n" << std::endl;
+		return 1;
+	}
+
+
 	std::ifstream instr_file;
-	instr_file.open("test.txt", std::ios_base::in);
+	instr_file.open(argv[1], std::ios_base::in);
 	if (!instr_file) {
 		std::cerr << "Unable to open file";
 		exit(1);   // call system to stop
@@ -264,8 +278,9 @@ void Broadcast(std::array<ReservationStation, MUL_DIV_RS + ADD_SUB_RS> & res_uni
 		int reg_index = executors[1].dest_tag;
 		int executor_from_tag = executors[1].from_tag;
 		int executor_result = executors[1].result;
-		res_unit[executor_from_tag].ClearResrvStat();
+		res_unit[executor_from_tag].ClearResrvStat(); //clear RS and executor for next RS
 		executors[1].Reset();
+		//See if another RS is ready to be dispatched
 		for (int i = RS_Bounds.MUL_START; i < RS_Bounds.MUL_END; ++i) {
 			if (res_unit[i].Check_Dispatch_Ready(ISSUE_LAT)) {
 				executors[1].Prime_Executor(res_unit[i]);
@@ -287,8 +302,9 @@ void Broadcast(std::array<ReservationStation, MUL_DIV_RS + ADD_SUB_RS> & res_uni
 		int reg_index = executors[0].dest_tag;
 		int executor_from_tag = executors[0].from_tag;
 		int executor_result = executors[0].result;
-		res_unit[executor_from_tag].ClearResrvStat();
+		res_unit[executor_from_tag].ClearResrvStat(); //clear RS and executor for next RS
 		executors[0].Reset();
+		//See if another RS is ready to be dispatched
 		for (int i = RS_Bounds.ADD_START; i < RS_Bounds.ADD_END; ++i) {
 			if (res_unit[i].Check_Dispatch_Ready(ISSUE_LAT)) {
 				executors[0].Prime_Executor(res_unit[i]);
