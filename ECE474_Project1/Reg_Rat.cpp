@@ -17,6 +17,12 @@ std::string  Reg_Rat::Name_Resolver()
 		return name;
 	}
 	else {
-		return "RS" + std::to_string(rat);
+		return "RS" + std::to_string(rat+1);
 	}
+}
+
+void Reg_Rat::Set_New(int new_value)
+{
+	value = new_value;
+	rat = -1;
 }

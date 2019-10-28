@@ -17,5 +17,6 @@ public:
 public:
 	ReservationStation();
 	ReservationStation(int, int);
+	ReservationStation(int);
 	ClearResrvStat();
 };

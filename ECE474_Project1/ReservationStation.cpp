@@ -1,7 +1,16 @@
 #include "ReservationStation.h"
-
+static const int OPERAND_READY = -1;
+static const int OPERAND_EMPTY = -2;
+static const int CLEAR_OPERAND = -3;
 void ReservationStation::ClearResrvStat()
 {
+	busy = false;
+	result_ready = false;
+	tag1 = OPERAND_EMPTY;
+	tag2 = OPERAND_EMPTY;
+	issue_lat = 0;
+	ext_lat = 0;
+	broadcast_lat = 0;
 }
 
 ReservationStation::ReservationStation(){
@@ -9,8 +18,8 @@ ReservationStation::ReservationStation(){
     op = 0;
     result = 0;
     result_ready = false;
-    tag1 = -2;
-    tag2 = 2;
+    tag1 = OPERAND_EMPTY;
+    tag2 = OPERAND_EMPTY;
     value1 = 0;
     value2 = 0;
     issue_lat = 0;
@@ -18,16 +27,58 @@ ReservationStation::ReservationStation(){
     broadcast_lat= 0;
 }
 
-ReservationStation::ReservationStation(int OP, int RSoperandAvailable){
+
+ReservationStation::ReservationStation(int index_value)
+{
+	index = index_value;
 	busy = false;
-	op = OP;
+	op = 0;
 	result = 0;
 	result_ready = false;
-	tag1 = RSoperandAvailable;
-	tag2 = RSoperandAvailable;
+	tag1 = OPERAND_EMPTY;
+	tag2 = OPERAND_EMPTY;
 	value1 = 0;
 	value2 = 0;
 	issue_lat = 0;
 	ext_lat = 0;
 	broadcast_lat = 0;
+	name = "RS" + std::to_string(index_value + 1);
+}
+
+bool ReservationStation::Check_Dispatch_Ready(int issue_latency) {
+
+	return tag1 == OPERAND_READY && tag2 == OPERAND_READY && busy && issue_lat >= issue_latency;
+}
+
+void ReservationStation::Recieve_Broadcast(int tag, int value)
+{
+	if (tag1 == tag) {
+		value1 = value;
+		tag1 = OPERAND_READY;
+	}
+	if (tag2 == tag) {
+		value2 = value;
+		tag2 = OPERAND_READY;
+	}
+}
+
+std::string ReservationStation::Print_Tag(int tag)
+{
+	if (tag == 1) {
+		if (tag1 == OPERAND_READY || tag1 == OPERAND_EMPTY) {
+			return "";
+		}
+		else {
+			return "RS" + std::to_string(tag1 + 1);
+		}
+	}
+	if (tag == 2) {
+		if (tag2 == OPERAND_READY || tag2 == OPERAND_EMPTY) {
+			return "";
+		}
+		else {
+			return "RS" + std::to_string(tag2 + 1);
+		}
+	}
+	return "";
 }

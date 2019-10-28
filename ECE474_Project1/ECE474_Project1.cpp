@@ -3,7 +3,9 @@
 #include "ReservationStation.h"
 #include "Instruction.h"
 #include <fstream>
+#include <array>
 #include "Reg_Rat.h"
+#include "Executor.h"
 const int ADD_SUB_RS = 3;
 const int MUL_DIV_RS = 2;
 
@@ -34,18 +36,18 @@ struct RS_DIVIDER {
 	int MUL_END = MUL_DIV_RS + ADD_SUB_RS;
 }RS_Bounds;
 
-int Issue(std::vector<Instruction>& instructions, 
-	ReservationStation res_unit[], 
-	Reg_Rat registers[],
+int Issue(std::vector<Instruction> & instructions, 
+	std::array<ReservationStation, MUL_DIV_RS + ADD_SUB_RS> & res_unit,
+	std::array <Reg_Rat, NUM_REG> & registers,
 	int instr_counter);
-//void EXECUTE(vector<Instruction>& Inst,
-//	ReservationStation[] & res_unit,
-//	vector<RegisterStatus>& RegStat,
-//	vector<int>& Register);
-//void WRITEBACK(vector<Instruction>& Inst,
-//	ReservationStation[] & res_unit,
-//	vector<RegisterStatus>& RegStat,
-//	vector<int>& Register);
+void Dispatch(std::array<ReservationStation, MUL_DIV_RS + ADD_SUB_RS> & res_unit,
+	std::array <Reg_Rat, NUM_REG> & registers,
+	std::array <Executor, 2> & executors);
+void Broadcast(std::array<ReservationStation, MUL_DIV_RS + ADD_SUB_RS> & res_unit,
+	std::array <Reg_Rat, NUM_REG> & registers,
+	std::array <Executor, 2> & executors);
+void printRegister(std::array <Reg_Rat, NUM_REG> & registers);
+void printReservationStations(std::array<ReservationStation, MUL_DIV_RS + ADD_SUB_RS> & res_unit);
 
 std::string Opcode(int op) {
 	switch (op)
@@ -81,6 +83,9 @@ int main()
 	instr_file >> amount;
 	const int instr_amount = amount;
 	instr_file >> num_cycles;
+	Executor adder = Executor();
+	Executor mult = Executor();
+	std::array <Executor, 2> executors = { adder, mult };
 	// Load all instructions into memory
 	std::vector<Instruction> instructions;
 	for (int i = 0; i < instr_amount; ++i) {
@@ -89,7 +94,7 @@ int main()
 		instructions.push_back(Instruction(Op, Rd, Rs, Rt));
 	}
 	// load all register values into memory
-	Reg_Rat registers[NUM_REG];
+	std::array <Reg_Rat, NUM_REG> registers;
 	for (int i = 0; i < NUM_REG; ++i) {
 		int value;
 		instr_file >> value;
@@ -100,10 +105,10 @@ int main()
 
 	
 	//debugging purposes
-	//for (int i = 0; i < instructions.size(); ++i) {
-	//	std::string op = Opcode(instructions[i].op);
-	//	std::cout << op << " R" << instructions[i].rd << ", R" << instructions[i].rs << ", R" << instructions[i].rt << std::endl;
-	//}
+	for (int i = 0; i < instructions.size(); ++i) {
+		std::string op = Opcode(instructions[i].op);
+		std::cout << op << " R" << instructions[i].rd << ", R" << instructions[i].rs << ", R" << instructions[i].rt << std::endl;
+	}
 
 	//debugging
 	/*std::cout << "\tRF\t\tRAT" << std::endl;
@@ -111,16 +116,21 @@ int main()
 		std::cout << "R" << i << ":\t" << registers[i].value << "\t\t" << registers[i].Name_Resolver() << std::endl;
 	}*/
 
-	ReservationStation reservation_unit[ADD_SUB_RS + MUL_DIV_RS];
+	std::array<ReservationStation, ADD_SUB_RS + MUL_DIV_RS> reservation_unit;
 	//Create Reservation Unit of reservation stations
 	bool no_instr = false; 
 	for (int i = 0; i < ADD_SUB_RS+MUL_DIV_RS; ++i) {
-		reservation_unit[i] = ReservationStation();
+		reservation_unit[i] = ReservationStation(i);
 	}
+	printRegister(registers);
 	int instr_counter = 0;
-	do {
-
-	} while (!no_instr);
+	for (int i = 1; i <= num_cycles; ++i) {
+		instr_counter = Issue(instructions, reservation_unit, registers, instr_counter);
+		Dispatch(reservation_unit, registers, executors);
+		Broadcast(reservation_unit, registers, executors);
+	}
+	printRegister(registers);
+	printReservationStations(reservation_unit);
 
 }
 /*
@@ -130,20 +140,22 @@ instr_counter: waiting for RS to become free or has incremented by 1
 
 Pass all Instructions, may convert from vector to queue.
 */
-int Issue(std::vector<Instruction>& instructions,
-	ReservationStation res_unit[],
-	Reg_Rat registers[], int instr_counter) {
-
-	if (instructions.size() >= instr_counter) {
+int Issue(std::vector<Instruction> & instructions,
+	std::array<ReservationStation, MUL_DIV_RS + ADD_SUB_RS> & res_unit,
+	std::array <Reg_Rat, NUM_REG> & registers, int instr_counter) {
+	if (instructions.size() <= instr_counter) {
 		return -1;
 	}
-
+	
+	if (instr_counter == -1) {
+		return -1;
+	}
 	bool RS_free = false;
 	int opcode = instructions[instr_counter].op;
 	int rs_slot;
 	//If add or sub loop through looking for free RS.
 	if (opcode == 0 || opcode == 1) {
-		for (int i = RS_Bounds.ADD_START; i < RS_Bounds.ADD_START; ++i) {
+		for (int i = RS_Bounds.ADD_START; i < RS_Bounds.ADD_END; ++i) {
 			if (!res_unit[i].busy) {
 				rs_slot = i;
 				++instr_counter;
@@ -171,25 +183,28 @@ int Issue(std::vector<Instruction>& instructions,
 			return instr_counter;
 		}
 	}
-
 	//Implement logic from page 180
 	// Tackle RS 
 	Instruction instr = instructions[instr_counter - 1];
-	if (registers[instr.rs].rat == OPERAND_EMPTY) {
+	if (registers[instr.rs].rat == OPERAND_READY) {
 		res_unit[rs_slot].value1 = registers[instr.rs].value;
 		res_unit[rs_slot].tag1 = OPERAND_READY;
+		res_unit[rs_slot].reg_loc = instr.rd;
 	}
 	else {
 		res_unit[rs_slot].tag1 = registers[instr.rs].rat;
+		res_unit[rs_slot].reg_loc = instr.rd;
 	}
 
 	//Tackle Rd
-	if (registers[instr.rt].rat == OPERAND_EMPTY) {
+	if (registers[instr.rt].rat == OPERAND_READY) {
 		res_unit[rs_slot].value2 = registers[instr.rt].value;
 		res_unit[rs_slot].tag2 = OPERAND_READY;
+		res_unit[rs_slot].reg_loc = instr.rd;
 	}
 	else {
 		res_unit[rs_slot].tag2 = registers[instr.rt].rat;
+		res_unit[rs_slot].reg_loc = instr.rd;
 	}
 
 	res_unit[rs_slot].busy = true;
@@ -198,7 +213,119 @@ int Issue(std::vector<Instruction>& instructions,
 	return instr_counter;
 
 }
+/*
+Future improvement take in only one RS per type of operation opposed to checking them all
+*/
+void Dispatch(std::array<ReservationStation, MUL_DIV_RS + ADD_SUB_RS> & res_unit,
+	std::array <Reg_Rat, NUM_REG> & registers, std::array <Executor, 2> & executors) {
+	
+	if (!executors[0].busy) {
+		for (int i = RS_Bounds.ADD_START; i < RS_Bounds.ADD_END; ++i) {
+			if (res_unit[i].Check_Dispatch_Ready(ISSUE_LAT)) {
+				executors[0].Prime_Executor(res_unit[i]);
+				break;
+			}
+		}
 
-// Run program: Ctrl + F5 or Debug > Start Without Debugging menu
-// Debug program: F5 or Debug > Start Debugging menu
+	}
+	else {
+		executors[0].Execute();
+	}
+	if (!executors[1].busy) {
+		for (int i = RS_Bounds.MUL_START; i < RS_Bounds.MUL_END; ++i) {
+			if (res_unit[i].Check_Dispatch_Ready(ISSUE_LAT)) {
+				executors[1].Prime_Executor(res_unit[i]);
+				break;
+			}
+		}
+	}
+	else {
+		executors[1].Execute();
+	}
+	for (int i = RS_Bounds.ADD_START; i < RS_Bounds.MUL_END; ++i) {
+		if (!res_unit[i].Check_Dispatch_Ready(ISSUE_LAT)) {
+			res_unit[i].issue_lat++;
+		}
+	}
+}
+/*
+Check the executors and if mult/div executor is done first it will broadcast first.
+Stuff done:
+Update register
+update RAT
+update reservation stations if matched
+clear reservation station and executor
+*/
+void Broadcast(std::array<ReservationStation, MUL_DIV_RS + ADD_SUB_RS> & res_unit,
+	std::array <Reg_Rat, NUM_REG> & registers,
+	std::array <Executor, 2> & executors) {
+
+	if (executors[1].Broadcast_Ready(BROADCAST_LAT)) {
+		int reg_index = executors[1].dest_tag;
+		int executor_from_tag = executors[1].from_tag;
+		int executor_result = executors[1].result;
+		res_unit[executor_from_tag].ClearResrvStat();
+		executors[1].Reset();
+		for (int i = RS_Bounds.MUL_START; i < RS_Bounds.MUL_END; ++i) {
+			if (res_unit[i].Check_Dispatch_Ready(ISSUE_LAT)) {
+				executors[1].Prime_Executor(res_unit[i]);
+				break;
+			}
+		}
+		if (registers[reg_index].rat == executor_from_tag) {
+			registers[reg_index].Set_New(executor_result);
+		}
+		for (int i = 0; i < ADD_SUB_RS + MUL_DIV_RS; ++i) {
+			res_unit[i].Recieve_Broadcast(executor_from_tag, executor_result);
+		}
+		
+		
+		return ;
+	}
+
+	if (executors[0].Broadcast_Ready(BROADCAST_LAT)) {
+		int reg_index = executors[0].dest_tag;
+		int executor_from_tag = executors[0].from_tag;
+		int executor_result = executors[0].result;
+		res_unit[executor_from_tag].ClearResrvStat();
+		executors[0].Reset();
+		for (int i = RS_Bounds.ADD_START; i < RS_Bounds.ADD_END; ++i) {
+			if (res_unit[i].Check_Dispatch_Ready(ISSUE_LAT)) {
+				executors[0].Prime_Executor(res_unit[i]);
+				break;
+			}
+		}
+		if (registers[reg_index].rat == executor_from_tag) {
+			registers[reg_index].Set_New(executor_result);
+		}
+		for (int i = 0; i < ADD_SUB_RS + MUL_DIV_RS; ++i) {
+			res_unit[i].Recieve_Broadcast(executor_from_tag, executor_result);
+		}
+		res_unit[executor_from_tag].ClearResrvStat();
+		
+		return;
+	}
+
+}
+
+void printRegister(std::array <Reg_Rat, NUM_REG> & registers) {
+	std::cout << "Register Status: " << std::endl;
+	std::cout << "RF\t\tRAT" << std::endl;
+	for (int i = 0; i < registers.size(); ++i) {
+		std::cout << registers[i].name << ": ";
+		std::cout << registers[i].value << "\t\t";
+		std::cout << registers[i].Name_Resolver() << std::endl;
+	}
+}
+void printReservationStations(std::array<ReservationStation, MUL_DIV_RS + ADD_SUB_RS> & res_unit) {
+	std::cout << "Reservation Stations:" << std::endl;
+	std::cout << "RS\tOP\tTag1\tTag2\tValue1\tValue2\tBusy" << std::endl;
+	for (int i = 0; i < res_unit.size(); ++i) {
+		std::cout << "RS" << i+1 << ":\t" << res_unit[i].op << "\t" <<
+			res_unit[i].Print_Tag(1) << "\t" << res_unit[i].Print_Tag(2) << "\t" <<
+			res_unit[i].value1 << "\t" << res_unit[i].value2 << "\t" <<
+			res_unit[i].busy << std::endl;
+	}
+}
+
 

@@ -152,11 +152,13 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="ECE474_Project1.cpp" />
+    <ClCompile Include="Executor.cpp" />
     <ClCompile Include="Instruction.cpp" />
     <ClCompile Include="Reg_Rat.cpp" />
     <ClCompile Include="ReservationStation.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Executor.h" />
     <ClInclude Include="Instruction.h" />
     <ClInclude Include="Reg_Rat.h" />
     <ClInclude Include="ReservationStation.h" />
