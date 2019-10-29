@@ -28,7 +28,7 @@ const int CLEAR_OPERAND = -3;
 
 
 const int NUM_REG = 8;
-
+//Used for bounds of the Reservation stations
 struct RS_DIVIDER {
 	int ADD_START = 0;
 	int ADD_END = ADD_SUB_RS;
@@ -65,6 +65,7 @@ std::string Opcode(int op) {
 		return "DIV";
 		break;
 	default:
+		return "";
 		break;
 	}
 }
@@ -117,8 +118,8 @@ int main(int argc, char* argv[])
 
 	instr_file.close();
 
-	
-	//debugging purposes
+	std::cout << "Instruction Queue:" << std::endl;
+	// Print Instruction queue
 	for (int i = 0; i < instructions.size(); ++i) {
 		std::string op = Opcode(instructions[i].op);
 		std::cout << op << " R" << instructions[i].rd << ", R" << instructions[i].rs << ", R" << instructions[i].rt << std::endl;
@@ -136,14 +137,16 @@ int main(int argc, char* argv[])
 	for (int i = 0; i < ADD_SUB_RS+MUL_DIV_RS; ++i) {
 		reservation_unit[i] = ReservationStation(i);
 	}
-	printRegister(registers);
+
 	int instr_counter = 0;
 	for (int i = 1; i <= num_cycles; ++i) {
 		instr_counter = Issue(instructions, reservation_unit, registers, instr_counter);
 		Dispatch(reservation_unit, registers, executors);
 		Broadcast(reservation_unit, registers, executors);
 	}
+	std::cout << std::endl;
 	printRegister(registers);
+	std::cout << std::endl;
 	printReservationStations(reservation_unit);
 
 }
@@ -236,6 +239,7 @@ void Dispatch(std::array<ReservationStation, MUL_DIV_RS + ADD_SUB_RS> & res_unit
 	if (!executors[0].busy) {
 		for (int i = RS_Bounds.ADD_START; i < RS_Bounds.ADD_END; ++i) {
 			if (res_unit[i].Check_Dispatch_Ready(ISSUE_LAT)) {
+				res_unit[i].disp = "1";
 				executors[0].Prime_Executor(res_unit[i]);
 				break;
 			}
@@ -248,6 +252,7 @@ void Dispatch(std::array<ReservationStation, MUL_DIV_RS + ADD_SUB_RS> & res_unit
 	if (!executors[1].busy) {
 		for (int i = RS_Bounds.MUL_START; i < RS_Bounds.MUL_END; ++i) {
 			if (res_unit[i].Check_Dispatch_Ready(ISSUE_LAT)) {
+				res_unit[i].disp = "1";
 				executors[1].Prime_Executor(res_unit[i]);
 				break;
 			}
@@ -273,16 +278,19 @@ clear reservation station and executor
 void Broadcast(std::array<ReservationStation, MUL_DIV_RS + ADD_SUB_RS> & res_unit,
 	std::array <Reg_Rat, NUM_REG> & registers,
 	std::array <Executor, 2> & executors) {
-
+	/*
+	Check Mult and Div executor first so it can broadcast if ready
+	*/
 	if (executors[1].Broadcast_Ready(BROADCAST_LAT)) {
 		int reg_index = executors[1].dest_tag;
 		int executor_from_tag = executors[1].from_tag;
 		int executor_result = executors[1].result;
-		res_unit[executor_from_tag].ClearResrvStat(); //clear RS and executor for next RS
+		res_unit[executor_from_tag].ClearResrvStat(); //clear RS and executor for next RS dispatch
 		executors[1].Reset();
 		//See if another RS is ready to be dispatched
 		for (int i = RS_Bounds.MUL_START; i < RS_Bounds.MUL_END; ++i) {
 			if (res_unit[i].Check_Dispatch_Ready(ISSUE_LAT)) {
+				res_unit[i].disp = "1";
 				executors[1].Prime_Executor(res_unit[i]);
 				break;
 			}
@@ -290,10 +298,10 @@ void Broadcast(std::array<ReservationStation, MUL_DIV_RS + ADD_SUB_RS> & res_uni
 		if (registers[reg_index].rat == executor_from_tag) {
 			registers[reg_index].Set_New(executor_result);
 		}
+		//Broadcast value to RSs
 		for (int i = 0; i < ADD_SUB_RS + MUL_DIV_RS; ++i) {
 			res_unit[i].Recieve_Broadcast(executor_from_tag, executor_result);
 		}
-		
 		
 		return ;
 	}
@@ -307,6 +315,7 @@ void Broadcast(std::array<ReservationStation, MUL_DIV_RS + ADD_SUB_RS> & res_uni
 		//See if another RS is ready to be dispatched
 		for (int i = RS_Bounds.ADD_START; i < RS_Bounds.ADD_END; ++i) {
 			if (res_unit[i].Check_Dispatch_Ready(ISSUE_LAT)) {
+				res_unit[i].disp = "1";
 				executors[0].Prime_Executor(res_unit[i]);
 				break;
 			}
@@ -314,6 +323,7 @@ void Broadcast(std::array<ReservationStation, MUL_DIV_RS + ADD_SUB_RS> & res_uni
 		if (registers[reg_index].rat == executor_from_tag) {
 			registers[reg_index].Set_New(executor_result);
 		}
+		//Broadcast value to RSs
 		for (int i = 0; i < ADD_SUB_RS + MUL_DIV_RS; ++i) {
 			res_unit[i].Recieve_Broadcast(executor_from_tag, executor_result);
 		}
@@ -324,6 +334,7 @@ void Broadcast(std::array<ReservationStation, MUL_DIV_RS + ADD_SUB_RS> & res_uni
 
 }
 
+//Print registers and Rat
 void printRegister(std::array <Reg_Rat, NUM_REG> & registers) {
 	std::cout << "Register Status: " << std::endl;
 	std::cout << "RF\t\tRAT" << std::endl;
@@ -333,14 +344,15 @@ void printRegister(std::array <Reg_Rat, NUM_REG> & registers) {
 		std::cout << registers[i].Name_Resolver() << std::endl;
 	}
 }
+//Print reservation stations
 void printReservationStations(std::array<ReservationStation, MUL_DIV_RS + ADD_SUB_RS> & res_unit) {
 	std::cout << "Reservation Stations:" << std::endl;
-	std::cout << "RS\tOP\tTag1\tTag2\tValue1\tValue2\tBusy" << std::endl;
+	std::cout << "RS\tOP\tTag1\tTag2\tValue1\tValue2\tBusy\tDisp" << std::endl;
 	for (int i = 0; i < res_unit.size(); ++i) {
-		std::cout << "RS" << i+1 << ":\t" << res_unit[i].op << "\t" <<
+		std::cout << "RS" << i+1 << ":\t" << Opcode(res_unit[i].op) << "\t" <<
 			res_unit[i].Print_Tag(1) << "\t" << res_unit[i].Print_Tag(2) << "\t" <<
 			res_unit[i].value1 << "\t" << res_unit[i].value2 << "\t" <<
-			res_unit[i].busy << std::endl;
+			res_unit[i].busy << "\t" << res_unit[i].disp << std::endl;
 	}
 }
 

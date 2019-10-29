@@ -11,6 +11,7 @@ void ReservationStation::ClearResrvStat()
 	issue_lat = 0;
 	ext_lat = 0;
 	broadcast_lat = 0;
+	disp = "";
 }
 
 ReservationStation::ReservationStation(){
@@ -25,14 +26,16 @@ ReservationStation::ReservationStation(){
     issue_lat = 0;
 	ext_lat = 0;
     broadcast_lat= 0;
+	disp = "";
 }
 
-
+//Constructor for the reservation station
 ReservationStation::ReservationStation(int index_value)
 {
+	disp = "";
 	index = index_value;
 	busy = false;
-	op = 0;
+	op = -1;
 	result = 0;
 	result_ready = false;
 	tag1 = OPERAND_EMPTY;
@@ -61,7 +64,7 @@ void ReservationStation::Recieve_Broadcast(int tag, int value)
 		tag2 = OPERAND_READY;
 	}
 }
-
+//If tags are empty or ready return empty string or return RS#
 std::string ReservationStation::Print_Tag(int tag)
 {
 	if (tag == 1) {

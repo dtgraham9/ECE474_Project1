@@ -226,6 +226,7 @@
     <ClInclude Include="ReservationStation.h" />
   </ItemGroup>
   <ItemGroup>
+    <Text Include="README.txt" />
     <Text Include="test.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

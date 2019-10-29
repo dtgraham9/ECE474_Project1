@@ -1,6 +1,6 @@
 #include "Executor.h"
 //Reservation Station Latency for different opcodes at execution
-
+//calculate both the result and latency and track to and from tags
 void Executor::Prime_Executor(ReservationStation & RS)
 {
 	const int ADD_SUB_LAT = 2;
@@ -58,7 +58,7 @@ Executor::Executor()
 	from_tag = -1;
 
 }
-
+//increment latency
 void Executor::Execute()
 {
 	

@@ -17,7 +17,7 @@ std::string  Reg_Rat::Name_Resolver()
 		return name;
 	}
 	else {
-		return "RS" + std::to_string(rat+1);
+		return "RS" + std::to_string(rat+1); // since array starts at 0; +1 to = RS1-5
 	}
 }
 

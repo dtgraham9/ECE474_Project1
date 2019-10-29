@@ -17,6 +17,7 @@ public:
 	int issue_lat;  //track issue latency
 	int broadcast_lat; //track broadcast latency
 	int reg_loc;
+	std::string disp;
 
 	//**** Methods
 public:
