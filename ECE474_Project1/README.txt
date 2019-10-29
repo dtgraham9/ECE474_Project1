@@ -1,3 +1,6 @@
+All source files are located in ECE474_Project1.
+The main method is located in ECE474_Project1.cpp
+
 To run have the text (example below is test.txt) file with the 
 instructions and registers in the same directory as the 
 ECE474_Project1.exe 
