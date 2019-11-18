@@ -118,11 +118,14 @@ int main(int argc, char* argv[])
 
 	instr_file.close();
 
-	std::cout << "Instruction Queue:" << std::endl;
+	std::cout << "Instructions:" << std::endl;
 	// Print Instruction queue
 	for (int i = 0; i < instructions.size(); ++i) {
 		std::string op = Opcode(instructions[i].op);
-		std::cout << op << " R" << instructions[i].rd << ", R" << instructions[i].rs << ", R" << instructions[i].rt << std::endl;
+		if (instructions[i].op == -1)
+			std::cout << "EMPTY" << std::endl;
+		else
+			std::cout << op << " R" << instructions[i].rd << ", R" << instructions[i].rs << ", R" << instructions[i].rt << std::endl;
 	}
 
 	//debugging
@@ -148,6 +151,14 @@ int main(int argc, char* argv[])
 	printRegister(registers);
 	std::cout << std::endl;
 	printReservationStations(reservation_unit);
+	std::cout << "\nInstruction Queue" << std::endl;
+	for (int i = 0; i < instructions.size(); ++i) {
+		std::string op = Opcode(instructions[i].op);
+		if (instructions[i].op == -1)
+			std::cout << "EMPTY" << std::endl;
+		else
+			std::cout << op << " R" << instructions[i].rd << ", R" << instructions[i].rs << ", R" << instructions[i].rt << std::endl;
+	}
 
 }
 /*
@@ -174,6 +185,7 @@ int Issue(std::vector<Instruction> & instructions,
 	if (opcode == 0 || opcode == 1) {
 		for (int i = RS_Bounds.ADD_START; i < RS_Bounds.ADD_END; ++i) {
 			if (!res_unit[i].busy) {
+				instructions[instr_counter].op = -1;
 				rs_slot = i;
 				++instr_counter;
 				res_unit[i].op = opcode; //Will assign either add or sub
@@ -189,6 +201,7 @@ int Issue(std::vector<Instruction> & instructions,
 	else if (opcode == 2 || opcode == 3) {
 		for (int i = RS_Bounds.MUL_START; i < RS_Bounds.MUL_END; i++) {
 			if (!res_unit[i].busy) {
+				instructions[instr_counter].op = -1;
 				rs_slot = i;
 				++instr_counter;
 				res_unit[i].op = opcode; //Will assign either Mul or Div
